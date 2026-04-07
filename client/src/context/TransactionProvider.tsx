@@ -22,10 +22,13 @@ import { sepolia } from "viem/chains";
 import { contractABI, contractAddress } from "../utils/connect";
 import { TransactionContext, type TransactionContextValue } from "./TransactionContext";
 
-/** 拡張機能が注入する EIP-1193 プロバイダ（未インストール時は undefined） */
+/** 拡張機能が注入する EIP-1193 プロバイダ（未インストール時は undefined）。モジュール内だけで使う（export しない）。 */
 const { ethereum } = window as Window & { ethereum?: import("viem").EIP1193Provider };
 
-/** 署名付きトランザクション送信用。MetaMask 等のウォレットに送信を依頼する。 */
+/**
+ * お金を動かす処理（送金など）をするときに使う。
+ * MetaMask が画面で承認して、ブロックチェーンへ送るための入口。
+ */
 function getWalletClient() {
   if (!ethereum) throw new Error("イーサリアムオブジェクトがありません。");
   return createWalletClient({
@@ -34,7 +37,10 @@ function getWalletClient() {
   });
 }
 
-/** 読み取り専用。レシート待ち・コントラクトの view 呼び出しに使う（署名は不要）。 */
+/**
+ * ブロックチェーンから情報を読むための入口。
+ * 読み取り専用。レシート待ち・コントラクトの view 呼び出しに使う（署名は不要）。
+ **/
 function getPublicClient() {
   if (!ethereum) throw new Error("イーサリアムオブジェクトがありません。");
   return createPublicClient({
@@ -44,7 +50,7 @@ function getPublicClient() {
 }
 
 /**
- * TransactionContext の値を組み立て、子ツリーに提供する。
+ * TransactionContext の値を組み立て、子ツリーに提供するProvider。
  * ウォレット状態・フォーム・送金処理の単一の入口。
  */
 export function TransactionProvider({ children }: { children: ReactNode }) {
@@ -73,8 +79,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * ページ読み込み時: 既に許可済みなら eth_accounts でアドレスを復元（再ログインなし）。
-   * eth_requestAccounts とは異なり、ユーザーにプロンプトを出さない。
+   * ページ読み込み時に、接続済みアカウントがあるか確認して復元する。
+   * 確認だけなので、MetaMask のポップアップは出ない。
    */
   const checkIfWalletIsConnected = useCallback(async () => {
     try {
@@ -176,7 +182,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     void checkIfWalletIsConnected();
   }, [checkIfWalletIsConnected]);
 
-  /** Context に載せるオブジェクト（transaction-context.ts の型と一致させる）。 */
+  /** Context に載せるオブジェクト（TransactionContext.ts の型と一致させる）。 */
   const value: TransactionContextValue = {
     connectWallet,
     currentAccount,
