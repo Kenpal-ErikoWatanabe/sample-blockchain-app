@@ -13,6 +13,26 @@ This example project includes:
 - TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
 - Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
 
+## 環境変数（Sepolia）
+
+`hardhat.config.ts` の `networks.sepolia` は [Configuration Variables](https://hardhat.org/docs/guides/configuration-variables) として次の名前を参照します。
+
+| 変数名 | 用途 |
+|--------|------|
+| `SEPOLIA_RPC_URL` | Sepolia への JSON-RPC（例: Alchemy の `https://eth-sepolia.g.alchemy.com/v2/...`） |
+| `SEPOLIA_PRIVATE_KEY` | デプロイ等でトランザクションに署名するアカウントの秘密鍵（`0x` 付き hex） |
+
+プロジェクト直下に **`.env`** を置き、上記を設定してください。テンプレートは **`.env.example`** をコピーして使えます。
+
+```shell
+cp .env.example .env
+# .env を編集して値を入れる（.env は .gitignore 済み）
+```
+
+`hardhat.config.ts` 先頭で `dotenv` を読み込んでいるため、**`npx hardhat` 実行時に `process.env` 経由で値が渡ります。** 別の方法として `npx hardhat keystore set SEPOLIA_RPC_URL` なども利用できます。
+
+---
+
 ## Usage
 
 ### Running Tests

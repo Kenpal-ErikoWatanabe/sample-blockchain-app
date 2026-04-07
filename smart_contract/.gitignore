@@ -1,3 +1,8 @@
+# Secrets (copy from .env.example)
+.env
+.env.*
+!.env.example
+
 # Node modules
 /node_modules
 
