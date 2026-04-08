@@ -1,5 +1,20 @@
 import contractABI from "./Transaction.json";
 
-// Transaction.json は { abi: [...] } ではなく、ABI 配列そのものが入っている
 export { contractABI };
-export const contractAddress = "0x927922E3C898effafFF7cD2DbaCA988eC6A9f210";
+
+/**
+ * Sepolia にデプロイした Transactions コントラクトのアドレス。
+ * ウォレット（EOA）のアドレスを入れないこと — エラー「External transactions to internal accounts cannot include data」になる。
+ *
+ * client/.env に例: VITE_CONTRACT_ADDRESS=0x...
+ * 取得: smart_contract で `npx hardhat run scripts/deploy.ts --network sepolia` のログ「Transactions deployed to:」
+ */
+const raw = import.meta.env.VITE_CONTRACT_ADDRESS;
+
+if (!raw || !/^0x[a-fA-F0-9]{40}$/.test(raw)) {
+  throw new Error(
+    "VITE_CONTRACT_ADDRESS を client/.env に設定してください（デプロイ済み Transactions のアドレス。ウォレットアドレスではありません）。",
+  );
+}
+
+export const contractAddress = raw as `0x${string}`;

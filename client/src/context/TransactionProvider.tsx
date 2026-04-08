@@ -30,6 +30,7 @@ const { ethereum } = window as Window & { ethereum?: import("viem").EIP1193Provi
  * MetaMask が画面で承認して、ブロックチェーンへ送るための入口。
  */
 function getWalletClient() {
+  // Check if MetaMask extension is installed
   if (!ethereum) throw new Error("イーサリアムオブジェクトがありません。");
   return createWalletClient({
     chain: sepolia,
@@ -84,10 +85,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
    */
   const checkIfWalletIsConnected = useCallback(async () => {
     try {
+      // Check if MetaMask extension is installed
       if (!ethereum) {
         return;
       }
+      // get the permitted accounts of the user from MetaMask
       const accounts = await ethereum.request({ method: "eth_accounts" });
+      console.log(`accounts - ${accounts}`);
       if (Array.isArray(accounts) && accounts.length > 0) {
         setCurrentAccount(accounts[0] as string);
       } else {
@@ -104,11 +108,14 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
    */
   const connectWallet = useCallback(async () => {
     try {
+      // Check if MetaMask extension is installed
       if (!ethereum) {
         alert("メタマスクをインストールしてください");
         return;
       }
+      // request permission to access the user's accounts from MetaMask
       const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      // Check if the user has selected an account
       if (Array.isArray(accounts) && accounts.length > 0) {
         setCurrentAccount(accounts[0] as string);
       }
@@ -168,10 +175,15 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
       const countStr = (count as bigint).toString();
       setTransactionCount(countStr);
+      console.log(`countStr - ${countStr}`);
+
       localStorage.setItem("transactionCount", countStr);
+      console.log(`localStorage に保存 - ${countStr}`);
+
     } catch (err) {
-      console.log(err);
-      throw new Error("トランザクションに失敗しました。");
+      console.error(err);
+      const detail = err instanceof Error ? err.message : String(err);
+      alert(`トランザクションに失敗しました。\n${detail}`);
     } finally {
       setIsLoading(false);
     }
