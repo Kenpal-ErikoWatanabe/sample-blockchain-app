@@ -1,5 +1,10 @@
 import { useTransactionContext } from '../context'
 
+function shortAddress(address: string) {
+  if (address.length < 12) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
 export function HeroSection() {
   const {
     formData,
@@ -17,11 +22,22 @@ export function HeroSection() {
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
             Crypt Card
           </h1>
-          {currentAccount ? (
-            <p className="mt-4 max-w-full truncate text-sm text-white/70" title={currentAccount}>
-              {currentAccount}
-            </p>
-          ) : null}
+          <div className="mt-6 w-full max-w-md rounded-xl border border-white/15 bg-black/25 px-4 py-3 text-left text-sm text-white/85">
+            <p className="font-medium text-sky-300/95">接続中のウォレット（送金元）</p>
+            {currentAccount ? (
+              <>
+                <p className="mt-1 font-mono text-xs text-white/90 sm:text-sm" title={currentAccount}>
+                  {shortAddress(currentAccount)}
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-white/55">
+                  送金とガス代はこのアドレスから引かれます。MetaMask
+                  でアカウントを切り替えると、ここも更新されます。
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-white/55">未接続 —「ウォレット連携」から接続してください。</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => void connectWallet()}
@@ -48,7 +64,7 @@ export function HeroSection() {
             >
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-white/80">
-                  アドレス
+                  送金先アドレス（受取人）
                 </span>
                 <input
                   type="text"

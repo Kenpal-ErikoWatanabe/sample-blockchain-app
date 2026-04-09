@@ -13,6 +13,7 @@ import {
   createPublicClient,
   createWalletClient,
   custom,
+  formatEther,
   getAddress,
   parseEther,
   type Address,
@@ -91,7 +92,9 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       }
       // get the permitted accounts of the user from MetaMask
       const accounts = await ethereum.request({ method: "eth_accounts" });
-      console.log(`accounts - ${accounts}`);
+      if (import.meta.env.DEV) {
+        console.log("[TransactionProvider] eth_accounts:", accounts);
+      }
       if (Array.isArray(accounts) && accounts.length > 0) {
         setCurrentAccount(accounts[0] as string);
       } else {
@@ -115,6 +118,9 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       }
       // request permission to access the user's accounts from MetaMask
       const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      if (import.meta.env.DEV) {
+        console.log("[TransactionProvider] eth_requestAccounts:", accounts);
+      }
       // Check if the user has selected an account
       if (Array.isArray(accounts) && accounts.length > 0) {
         setCurrentAccount(accounts[0] as string);
@@ -126,8 +132,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * addToBlockchain(receiver, amount) を送金。流れ:
-   * writeContract → receipt 待ち → getTransactionCount で件数更新 → localStorage に保存。
+   * addToBlockchain(receiver) を呼び出し、value として ETH を添付して送金する。
+   * 流れ: writeContract → receipt 待ち → getTransactionCount で件数更新 → localStorage に保存。
    * keyword / message はここではオンチェーンに送らない（コントラクト ABI に合わせた形）。
    */
   const sendTransaction = useCallback(async () => {
@@ -152,6 +158,54 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       const receiver = getAddress(addressTo as Address);
       const amountWei = parseEther(amount);
 
+      /** Sepolia でもガス代が別途かかる。これ未満だと MetaMask が「手数料 利用不可」になりやすい。 */
+      const minGasBufferWei = parseEther("0.0001");
+
+      const balance = await publicClient.getBalance({ address: currentAccount as Address });
+      if (import.meta.env.DEV) {
+        console.log(
+          "[TransactionProvider] sendTransaction precheck:",
+          "balance ETH =",
+          formatEther(balance),
+          "value ETH =",
+          formatEther(amountWei),
+          "from =",
+          currentAccount,
+        );
+      }
+
+      if (balance < amountWei) {
+        alert(
+          `このアカウントの Sepolia ETH が送金額より少ないです。\n\n残高: ${formatEther(balance)} ETH\n送金: ${formatEther(amountWei)} ETH\n\nAccount 1 と Account 2 は別ウォレットです。フォーセットで「送金に使うアカウント」へ ETH を入れてください。`,
+        );
+        return;
+      }
+
+      if (balance < amountWei + minGasBufferWei) {
+        alert(
+          `送金額＋ガス代をまとめて払えるか怪しい残高です（MetaMask で「ネットワーク手数料: 利用不可」になることがあります）。\n\n残高: ${formatEther(balance)} ETH\n送金: ${formatEther(amountWei)} ETH\n※ 目安として残り ${formatEther(minGasBufferWei)} ETH 以上の余裕を用意してください。`,
+        );
+        return;
+      }
+
+      try {
+        await publicClient.simulateContract({
+          account: currentAccount as Address,
+          address: contractAddress as Address,
+          abi: contractABI,
+          functionName: "addToBlockchain",
+          args: [receiver],
+          value: amountWei,
+        });
+      } catch (simErr) {
+        console.error("[TransactionProvider] simulateContract failed:", simErr);
+        const detail = simErr instanceof Error ? simErr.message : String(simErr);
+        alert(
+          `オンチェーン実行のシミュレーションに失敗しました（このまま送ると失敗する可能性があります）。\n\n${detail}`,
+        );
+        return;
+      }
+
       setIsLoading(true);
 
       const hash = await walletClient.writeContract({
@@ -159,7 +213,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         address: contractAddress as Address,
         abi: contractABI,
         functionName: "addToBlockchain",
-        args: [receiver, amountWei],
+        args: [receiver],
+        value: amountWei,
         account: currentAccount as Address,
       });
 
@@ -193,6 +248,41 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void checkIfWalletIsConnected();
   }, [checkIfWalletIsConnected]);
+
+  /**
+   * 開発時: currentAccount の現在値を追跡（接続・復元・アカウント切替のたびに更新される）。
+   * 本番ビルドでは出力しない。
+   */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    console.log("[TransactionProvider] currentAccount:", currentAccount || "(未接続)");
+  }, [currentAccount]);
+
+  /** MetaMask でアカウントを切り替えたとき、接続中アドレスを同期する。 */
+  useEffect(() => {
+    if (!ethereum) return;
+    const provider = ethereum as typeof ethereum & {
+      on: (event: "accountsChanged", handler: (accounts: string[]) => void) => void;
+      removeListener: (event: "accountsChanged", handler: (accounts: string[]) => void) => void;
+    };
+    if (typeof provider.on !== "function") return;
+
+    const onAccountsChanged = (accounts: string[]) => {
+      if (import.meta.env.DEV) {
+        console.log("[TransactionProvider] accountsChanged (raw):", accounts);
+      }
+      if (accounts.length > 0) {
+        setCurrentAccount(accounts[0]);
+      } else {
+        setCurrentAccount("");
+      }
+    };
+
+    provider.on("accountsChanged", onAccountsChanged);
+    return () => {
+      provider.removeListener("accountsChanged", onAccountsChanged);
+    };
+  }, []);
 
   /** Context に載せるオブジェクト（TransactionContext.ts の型と一致させる）。 */
   const value: TransactionContextValue = {

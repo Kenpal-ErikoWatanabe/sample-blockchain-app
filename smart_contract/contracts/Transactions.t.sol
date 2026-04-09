@@ -32,8 +32,9 @@ contract TransactionsTest is Test {
 
   /// @notice addToBlockchain が配列に 1 件追加し、sender / receiver / amount が意図どおり保存されることを確認する
   function test_AddToBlockchainAppendsTransfer() public {
+    vm.deal(alice, 1 ether);
     vm.prank(alice);
-    transactionsContract.addToBlockchain(payable(bob), 100);
+    transactionsContract.addToBlockchain{value: 100}(payable(bob));
 
     assertEq(transactionsContract.getTransactionCount(), 1);
 
@@ -46,10 +47,11 @@ contract TransactionsTest is Test {
   /// @notice addToBlockchain 実行時に Transfer イベントが正しい引数で emit されることを確認する
   /// @dev コントラクト側の Transfer に indexed がないため、vm.expectEmit(false, false, false, true) でデータ部のみ検証
   function test_AddToBlockchainEmitsTransfer() public {
+    vm.deal(alice, 1 ether);
     vm.expectEmit(false, false, false, true);
     emit Transfer(alice, bob, 50);
 
     vm.prank(alice);
-    transactionsContract.addToBlockchain(payable(bob), 50);
+    transactionsContract.addToBlockchain{value: 50}(payable(bob));
   }
 }
